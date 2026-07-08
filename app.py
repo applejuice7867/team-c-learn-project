@@ -1,46 +1,81 @@
 import random
 import re
 from fractions import Fraction
-from flask import Flask, jsonify, redirect, render_template, request, url_for
+from typing import Union, List, Dict, Any
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel, Field
+import uvicorn
 
-app = Flask(__name__, static_folder=".", static_url_path="", template_folder=".")
+app = FastAPI(title="EduPulse API")
 
-
-@app.route("/")
-def home():
-    return render_template("index.html")
-
-
-@app.route("/login")
-def login():
-    return render_template("login.html")
-
-
-@app.route("/dashboard")
-def dashboard():
-    return render_template("dashboard.html")
+# Setup Jinja2 templates pointing to the root directory
+templates = Jinja2Templates(directory=".")
 
 
-@app.route("/math-generator")
-def math_generator():
-    return render_template("math-generator.html")
+# ==========================================
+# PYDANTIC MODELS FOR REQUEST VALIDATION
+# ==========================================
+
+class MathGenRequest(BaseModel):
+    grade: Union[str, int] = "k"
+    count: int = Field(default=5, ge=1, le=200)
+    topic: str = "mixed"
+    questionType: str = "mixed"
 
 
-@app.route("/question-importer")
-def question_importer():
-    return render_template("question-importer.html")
+class ImportQuestionsRequest(BaseModel):
+    text: str = ""
 
 
-@app.route("/api/generate-math", methods=["POST"])
-def generate_math():
-    data = request.json or {}
-    grade = data.get("grade", "k")
-    count = min(max(int(data.get("count", 5)), 1), 200)
-    topic = data.get("topic", "mixed")
-    question_type = data.get("questionType", "mixed")
+# ==========================================
+# HTML TEMPLATE ROUTES
+# ==========================================
+
+@app.get("/", response_class=HTMLResponse)
+async def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    return templates.TemplateResponse("dashboard.html", {"request": request})
+
+
+@app.get("/math-generator", response_class=HTMLResponse)
+async def math_generator(request: Request):
+    return templates.TemplateResponse("math-generator.html", {"request": request})
+
+
+@app.get("/question-importer", response_class=HTMLResponse)
+async def question_importer(request: Request):
+    return templates.TemplateResponse("question-importer.html", {"request": request})
+
+
+# ==========================================
+# API ENDPOINTS
+# ==========================================
+
+@app.post("/api/generate-math")
+async def generate_math(payload: MathGenRequest):
+    grade = payload.grade
+    count = min(max(int(payload.count), 1), 200)
+    topic = payload.topic
+    question_type = payload.questionType
     questions = []
 
-    grade_band = {"k": "k-2", "1": "k-2", "2": "k-2", "3": "3-5", "4": "3-5", "5": "3-5", "6": "6-8", "7": "6-8", "8": "6-8", "9": "9-12", "10": "9-12", "11": "9-12", "12": "9-12"}.get(str(grade), "9-12")
+    grade_band = {
+        "k": "k-2", "1": "k-2", "2": "k-2", "3": "3-5", "4": "3-5", 
+        "5": "3-5", "6": "6-8", "7": "6-8", "8": "6-8", "9": "9-12", 
+        "10": "9-12", "11": "9-12", "12": "9-12"
+    }.get(str(grade), "9-12")
 
     grade_topics = {
         "k-2": ["arithmetic", "counting", "shapes"],
@@ -147,350 +182,200 @@ def generate_math():
                     a, b = random.randint(6, 20), random.randint(2, 8)
                     return make_question(f"{a} + {b} × 2 = ?", a + b * 2, "Multiply before adding.")
                 if variant == "estimate":
-                    a, b = random.randint(10, 40), random.randint(5, 15)
-                    return make_question(f"Estimate: {a} + {b} ≈ ?", a + b, "Estimate by rounding to the nearest convenient value.")
+                    a, b = random.randint(10, 80), random.randint(10, 80)
+                    return make_question(f"Estimate {a} + {b} by rounding each to the nearest ten.", round(a, -1) + round(b, -1), "Round each number first, then add.")
                 if variant == "fact_family":
-                    a, b = random.randint(2, 9), random.randint(2, 9)
+                    a, b = random.randint(3, 9), random.randint(3, 9)
                     return make_question(f"If {a} × {b} = {a * b}, what is {a * b} ÷ {b}?", a, "Use the related multiplication and division facts.")
+                if variant == "number_line":
+                    start = random.randint(10, 50)
+                    step = random.randint(5, 10)
+                    return make_question(f"What number is {step} units to the right of {start} on a number line?", start + step, "Moving right on a number line increases the value.")
                 if variant == "missing_addend":
-                    total = random.randint(8, 20)
-                    addend = random.randint(2, 8)
-                    if kind == "fill-in-the-blank":
-                        return make_question(f"{addend} + ____ = {total}", total - addend, "Find the missing addend by subtracting.")
-                    return make_question(f"What number makes {addend} + ? = {total}?", total - addend, "Subtract the known addend from the total.")
-                if variant == "comparison":
-                    a, b = random.randint(5, 15), random.randint(5, 15)
-                    return make_question(f"Which is larger: {a} or {b}?", max(a, b), "Compare the two values directly.")
-                return make_question(f"What is {random.randint(5, 15)} more than {random.randint(1, 10)}?", random.randint(1, 10) + random.randint(5, 15), "Add the extra amount to the starting number.")
-            variant = random.choice(["ops", "order", "word", "ratio", "inequality", "expression", "decimal"])
-            if variant == "ops":
-                a, b, c = random.randint(2, 9), random.randint(2, 9), random.randint(2, 9)
-                return make_question(f"{a} + {b} × {c} = ?", a + b * c, "Use the order of operations.")
-            if variant == "order":
-                a, b, c = random.randint(3, 10), random.randint(2, 8), random.randint(2, 8)
-                return make_question(f"({a} + {b}) × {c} = ?", (a + b) * c, "Work inside parentheses first.")
-            if variant == "word":
-                a, b = random.randint(12, 30), random.randint(4, 9)
-                return make_question(f"A class has {a} students and each table seats {b}. How many tables are needed?", (a + b - 1) // b, "Divide and round up for the remaining students.")
-            if variant == "ratio":
-                a, b = random.randint(4, 12), random.randint(2, 6)
-                return make_question(f"How much is {a} groups of {b}?", a * b, "Multiply the group size by the number of groups.")
-            if variant == "expression":
-                a, b = random.randint(3, 9), random.randint(2, 6)
-                return make_question(f"Write an expression for the total of {a} and {b}.", f"{a} + {b}", "An expression shows the math relationship without solving it.")
-            if variant == "decimal":
-                a = random.randint(10, 90)
-                return make_question(f"What is {a} divided by 10?", a / 10, "Move the decimal one place left when dividing by 10.")
-            return make_question(f"Choose the sign that makes the statement true: {random.randint(2, 8)} __ {random.randint(2, 8)}", "<" if random.randint(0, 1) == 0 else ">", "Compare the two values carefully.")
+                    total = random.randint(20, 100)
+                    part = random.randint(5, total - 5)
+                    return make_question(f"? + {part} = {total}", total - part, "Subtract the known addend from the sum.")
+                return make_question(f"Which is smaller: {random.randint(100, 500)} or {random.randint(100, 500)}?", min(random.randint(100, 500), random.randint(100, 500)), "Compare place values starting from the hundreds digit.")
+            a, b = random.randint(12, 40), random.randint(2, 12)
+            return make_question(f"Evaluate: {a} - {b} × 2 + 6.", a - (b * 2) + 6, "Follow order of operations: multiply before adding and subtracting.")
 
         if selected_topic == "counting":
-            variants = [
-                (f"Count the objects: {random.randint(5, 12)} stars and {random.randint(2, 6)} moons. How many objects are there altogether?", random.randint(5, 12) + random.randint(2, 6), "Count the total number of objects or add the new items to the group."),
-                (f"If there are {random.randint(4, 10)} ducks and {random.randint(1, 5)} more join them, how many ducks are there now?", random.randint(4, 10) + random.randint(1, 5), "Add the new ducks to the original total."),
-                (f"A basket holds {random.randint(6, 14)} apples. You add {random.randint(1, 4)} more. How many apples are there now?", random.randint(6, 14) + random.randint(1, 4), "Add the extra apples to the original amount."),
-                (f"There are {random.randint(3, 8)} birds in a tree. {random.randint(1, 4)} fly away. How many are left?", random.randint(3, 8) - random.randint(1, 4), "Subtract the ones that left from the original total."),
-                (f"A box has {random.randint(2, 7)} red crayons and {random.randint(2, 7)} blue crayons. How many crayons are there altogether?", random.randint(2, 7) + random.randint(2, 7), "Combine the two groups."),
+            questions_pool = [
+                (f"Count the objects: {random.randint(5, 12)} stars and {random.randint(2, 6)} moons. How many objects are there altogether?", random.randint(5, 12) + random.randint(2, 6), "Count each group and add them together."),
+                (f"If you start at {random.randint(1, 5)} and count forward {random.randint(3, 7)} steps, what number do you land on?", random.randint(1, 5) + random.randint(3, 7), "Count forward step by step."),
+                (f"How many fingers are on {random.randint(2, 6)} hands?", random.randint(2, 6) * 5, "Count by fives for each hand."),
             ]
-            q_text, ans, explanation = random.choice(variants)
-            return make_question(q_text, ans, explanation)
-
-        if selected_topic == "shapes":
-            variants = [
-                ("Which shape has 3 sides?", "Triangle", "A triangle is a 2D shape with three sides."),
-                ("Which shape has 4 equal sides?", "Square", "A square has four equal sides and four right angles."),
-                ("Which shape has no corners?", "Circle", "A circle is round and has no corners."),
-                ("How many sides does a hexagon have?", "6", "A hexagon has six sides."),
-                ("Which shape has 8 sides?", "Octagon", "An octagon has eight sides."),
-            ]
-            q_text, ans, explanation = random.choice(variants)
-            return make_question(q_text, ans, explanation)
+            q_text, q_ans, q_exp = random.choice(questions_pool)
+            return make_question(q_text, q_ans, q_exp)
 
         if selected_topic == "fractions":
-            if grade_band == "3-5":
-                variant = random.choice(["add", "subtract", "compare", "word", "simplify"])
+            variant = random.choice(["add", "subtract", "compare", "multiply", "convert", "share"])
+            if variant in ["add", "subtract"]:
+                denom = random.choice([2, 3, 4, 5, 6, 8, 10])
+                num1 = random.randint(1, denom - 1)
+                num2 = random.randint(1, denom - 1)
                 if variant == "add":
-                    a, b = random.randint(1, 4), random.randint(2, 5)
-                    c, d = random.randint(1, 4), random.randint(2, 5)
-                    result = Fraction(a, b) + Fraction(c, d)
-                    return make_question(f"What is {a}/{b} + {c}/{d}?", result, "Find a common denominator before combining the fractions.")
-                if variant == "subtract":
-                    a, b = random.randint(1, 4), random.randint(2, 5)
-                    c, d = random.randint(1, 4), random.randint(2, 5)
-                    result = Fraction(a, b) - Fraction(c, d)
-                    return make_question(f"What is {a}/{b} - {c}/{d}?", result, "Subtract the fractions carefully after finding a common denominator.")
-                if variant == "compare":
-                    a, b = random.randint(1, 5), random.randint(2, 6)
-                    c, d = random.randint(1, 5), random.randint(2, 6)
-                    return make_question(f"Which is greater: {a}/{b} or {c}/{d}?", max(Fraction(a, b), Fraction(c, d)), "Compare the fractions by converting them or finding a common denominator.")
-                if variant == "word":
-                    a, b = random.randint(2, 6), random.randint(2, 6)
-                    return make_question(f"A pizza is cut into {b} equal slices. If you eat {a} slices, what fraction of the pizza did you eat?", Fraction(a, b), "Use the number of slices eaten over the total number of slices.")
-                return make_question(f"Simplify {random.randint(2, 8)}/{random.randint(2, 8)}", Fraction(random.randint(2, 8), random.randint(2, 8)), "Reduce the fraction by dividing the numerator and denominator by a common factor.")
-            if grade_band == "6-8":
-                variant = random.choice(["simplify", "compare", "add", "multiply", "word"])
-                if variant == "simplify":
-                    a, b = random.randint(2, 8), random.randint(2, 8)
-                    return make_question(f"Simplify: {a}/{b}", Fraction(a, b) if a != b else 1, "Reduce the fraction by dividing by the greatest common factor.")
-                if variant == "compare":
-                    a, b = random.randint(1, 6), random.randint(2, 7)
-                    c, d = random.randint(1, 6), random.randint(2, 7)
-                    return make_question(f"Which is greater: {a}/{b} or {c}/{d}?", max(Fraction(a, b), Fraction(c, d)), "Compare the fractions by finding a common denominator or converting to decimals.")
-                if variant == "add":
-                    a, b = random.randint(1, 4), random.randint(2, 5)
-                    c, d = random.randint(1, 4), random.randint(2, 5)
-                    return make_question(f"What is {a}/{b} + {c}/{d}?", Fraction(a, b) + Fraction(c, d), "Use a common denominator to add fractions.")
-                if variant == "multiply":
-                    a, b = random.randint(1, 4), random.randint(2, 5)
-                    c, d = random.randint(1, 4), random.randint(2, 5)
-                    return make_question(f"What is {a}/{b} × {c}/{d}?", Fraction(a, b) * Fraction(c, d), "Multiply numerators together and denominators together.")
-                return make_question(f"A recipe uses {random.randint(1, 4)} cups of flour for every {random.randint(2, 6)} cups of water. What fraction of the mixture is flour?", Fraction(random.randint(1, 4), random.randint(2, 6)), "Write the flour amount over the total amount in the mixture.")
-            variant = random.choice(["divide", "multiply", "convert", "word"])
-            if variant == "divide":
-                a, b = random.randint(1, 5), random.randint(2, 6)
-                c, d = random.randint(1, 5), random.randint(2, 6)
-                return make_question(f"What is {a}/{b} ÷ {c}/{d}?", Fraction(a, b) / Fraction(c, d), "Divide fractions by multiplying by the reciprocal of the second fraction.")
+                    ans = Fraction(num1 + num2, denom)
+                    return make_question(f"{num1}/{denom} + {num2}/{denom} = ?", f"{ans.numerator}/{ans.denominator}" if ans.denominator != 1 else str(ans.numerator), "Add the numerators while keeping the common denominator.")
+                if num1 < num2:
+                    num1, num2 = num2, num1
+                ans = Fraction(num1 - num2, denom)
+                return make_question(f"{num1}/{denom} - {num2}/{denom} = ?", f"{ans.numerator}/{ans.denominator}" if ans.denominator != 1 else str(ans.numerator), "Subtract the numerators while keeping the common denominator.")
+            if variant == "compare":
+                a, b = random.randint(1, 5), random.choice([2, 3, 4, 6, 8])
+                c, d = random.randint(1, 5), random.choice([2, 3, 4, 6, 8])
+                f1, f2 = Fraction(a, b), Fraction(c, d)
+                ans = f"{a}/{b}" if f1 > f2 else f"{c}/{d}"
+                return make_question(f"Which is greater: {a}/{b} or {c}/{d}?", ans, "Find a common denominator or convert to decimals to compare.")
             if variant == "multiply":
                 a, b = random.randint(1, 4), random.randint(2, 5)
                 c, d = random.randint(1, 4), random.randint(2, 5)
-                return make_question(f"What is {a}/{b} × {c}/{d}?", Fraction(a, b) * Fraction(c, d), "Multiply numerators together and denominators together.")
+                ans = Fraction(a, b) * Fraction(c, d)
+                return make_question(f"{a}/{b} × {c}/{d} = ?", f"{ans.numerator}/{ans.denominator}" if ans.denominator != 1 else str(ans.numerator), "Multiply numerators together and denominators together.")
             if variant == "convert":
-                a, b = random.randint(1, 6), random.randint(2, 7)
-                return make_question(f"Convert {a}/{b} to a decimal.", Fraction(a, b), "Divide the numerator by the denominator.")
-            return make_question(f"A class ate {random.randint(1, 5)} out of {random.randint(2, 8)} slices of pie. What fraction was eaten?", Fraction(random.randint(1, 5), random.randint(2, 8)), "Write the eaten part over the total slices.")
+                a, b = random.randint(1, 6), random.choice([2, 4, 5, 10])
+                return make_question(f"Write {a}/{b} as a decimal.", str(a / b), "Divide the numerator by the denominator.")
+            a = random.randint(4, 12)
+            b = random.randint(2, 6)
+            return make_question(f"Mia bought {a} pizzas and shared them among {b} friends. How much pizza does each friend get?", str(Fraction(a, b)), "Divide the total items by the number of people.")
 
         if selected_topic == "percentages":
-            if grade_band == "3-5":
-                variant = random.choice(["percent", "discount", "increase", "part-whole", "compare"])
-                if variant == "percent":
-                    percent = random.choice([10, 20, 25, 50])
-                    base = random.randint(20, 80)
-                    return make_question(f"What is {percent}% of {base}?", int(base * percent / 100), "Convert the percent to a decimal or fraction, then multiply by the base value.")
-                if variant == "discount":
-                    price = random.randint(20, 60)
-                    percent = random.choice([10, 25, 50])
-                    return make_question(f"A book costs ${price}. It is discounted by {percent}%. What is the new price?", price - int(price * percent / 100), "Find the discount amount and subtract it from the original price.")
-                if variant == "increase":
-                    start, increase = random.randint(10, 40), random.randint(5, 20)
-                    return make_question(f"A score increases from {start} to {start + increase}. What is the percent increase?", int(increase / start * 100), "Compare the increase to the original value.")
-                if variant == "part-whole":
-                    total, part = random.randint(10, 50), random.randint(2, 10)
-                    return make_question(f"If {part} out of {total} students are wearing hats, what percent is that?", int(part / total * 100), "Write the part over the whole, then convert to a percent.")
-                return make_question(f"Which is larger: 25% of 80 or 20% of 100?", 20, "Calculate each percent first and compare the results.")
-            if grade_band == "6-8":
-                start = random.randint(20, 100)
-                increase = random.choice([10, 20, 25, 50])
-                return make_question(f"A value increases from {start} to {start + increase}. What is the percent increase?", increase, "Percent increase is the increase divided by the original amount, then multiplied by 100.")
-            original = random.randint(40, 150)
-            discount = random.choice([10, 15, 20, 25])
-            return make_question(f"A jacket costs ${original} and is discounted by {discount}%. What is the sale price?", original - int(original * discount / 100), "Subtract the discount amount from the original price.")
-
-        if selected_topic == "word-problems":
-            variant = random.choice(["share", "distance", "total", "time", "group"])
-            if variant == "share":
-                a = random.randint(4, 12)
-                b = random.randint(2, 6)
-                return make_question(f"Mia bought {a} apples and shared them equally among {b} friends. How many apples did each friend get?", a // b, "Divide the total number of apples equally among the friends.")
-            if variant == "distance":
-                speed, time = random.randint(3, 8), random.randint(2, 6)
-                return make_question(f"A car travels {speed} miles per hour for {time} hours. How far does it travel?", speed * time, "Distance is speed multiplied by time.")
-            if variant == "total":
-                a, b = random.randint(8, 20), random.randint(2, 5)
-                return make_question(f"There are {a} chairs arranged in rows of {b}. How many rows are there?", a // b, "Divide the chairs evenly into rows.")
-            if variant == "time":
-                rate, amount = random.randint(2, 6), random.randint(3, 8)
-                return make_question(f"A machine makes {rate} parts each minute. How many parts does it make in {amount} minutes?", rate * amount, "Multiply the rate by the time.")
-            return make_question(f"A garden has {random.randint(5, 12)} rows with {random.randint(3, 6)} plants in each row. How many plants are there?", random.randint(5, 12) * random.randint(3, 6), "Multiply the number of rows by the plants in each row.")
-
-        if selected_topic == "geometry":
-            if grade_band == "3-5":
-                length = random.randint(4, 12)
-                width = random.randint(3, 10)
-                return make_question(f"A rectangle has a length of {length} units and a width of {width} units. What is its area?", length * width, "Area of a rectangle is length multiplied by width.")
-            if grade_band == "6-8":
-                side = random.randint(3, 8)
-                return make_question(f"A cube has side length {side}. What is its volume?", side ** 3, "Volume of a cube is side cubed.")
-            a, b = random.randint(3, 8), random.randint(4, 10)
-            return make_question(f"A right triangle has legs {a} and {b}. What is the hypotenuse length?", round((a ** 2 + b ** 2) ** 0.5, 2), "Use the Pythagorean theorem to find the missing side length.")
+            percent = random.choice([10, 20, 25, 50, 75])
+            whole = random.choice([20, 40, 60, 80, 100, 120, 200])
+            return make_question(f"What is {percent}% of {whole}?", int(whole * (percent / 100)), "Convert percent to a decimal or fraction and multiply by the whole.")
 
         if selected_topic == "algebra":
-            if grade_band == "6-8":
-                variant = random.choice(["solve", "factor", "graph", "evaluate", "expression"])
-                if variant == "solve":
-                    x = random.randint(2, 9)
-                    b = random.randint(1, 10)
-                    return make_question(f"Solve for x: {x}x + {b} = {x * x + b}", x, "Isolate the variable by undoing the operations in reverse order.")
-                if variant == "factor":
-                    a = random.randint(2, 5)
-                    b = random.randint(2, 6)
-                    return make_question(f"Factor: x² + {a + b}x + {a * b}", f"(x + {a})(x + {b})", "Find two numbers that multiply to the constant term and add to the middle coefficient.")
-                if variant == "graph":
-                    x = random.randint(1, 4)
-                    return make_question(f"If y = 2x + 1, what is y when x = {x}?", 2 * x + 1, "Substitute the value of x into the expression.")
-                if variant == "evaluate":
-                    a = random.randint(2, 5)
-                    return make_question(f"Evaluate 3a + 4 when a = {a}", 3 * a + 4, "Replace a with the given value and simplify.")
-                return make_question(f"What is the slope of the line y = {random.randint(2, 5)}x + {random.randint(1, 4)}?", random.randint(2, 5), "The coefficient of x is the slope.")
-            variant = random.choice(["linear", "quadratic", "system", "expand"])
+            variant = random.choice(["linear", "two_step", "combine", "evaluate", "distribute", "factor"])
             if variant == "linear":
-                x = random.randint(1, 5)
-                return make_question(f"Solve: 2x + 3 = {2 * x + 3}", x, "Subtract 3 and divide by 2 to isolate x.")
-            if variant == "quadratic":
-                a = random.randint(1, 3)
-                return make_question(f"Solve: x² - {a * 2}x + {a * a} = 0", f"x = {a}", "Factor the quadratic expression to find the roots.")
-            if variant == "system":
-                return make_question("Solve the system: x + y = 5 and x - y = 1", "x = 3, y = 2", "Add the equations together and solve for each variable.")
-            return make_question(f"Expand: {random.randint(2, 4)}(x + {random.randint(1, 4)})", f"{random.randint(2, 4)}x + {random.randint(2, 8)}", "Distribute the number outside the parentheses.")
+                x = random.randint(-10, 10)
+                a = random.choice([2, 3, 4, 5])
+                b = random.randint(-15, 15)
+                c = a * x + b
+                return make_question(f"Solve for x: {a}x + {b} = {c}.", x, "Subtract the constant term, then divide by the coefficient.")
+            if variant == "two_step":
+                x = random.randint(1, 8)
+                a = random.choice([2, 3, 4])
+                b = random.randint(1, 10)
+                return make_question(f"Solve for x: ({a}x + {b}) / 2 = {int((a * x + b) / 2)}.", x, "Multiply by 2 first, then isolate x.")
+            if variant == "combine":
+                a, b, c = random.randint(2, 8), random.randint(1, 6), random.randint(1, 5)
+                return make_question(f"Simplify: {a}x + {b}x - {c}x.", f"{a + b - c}x", "Combine like terms by adding or subtracting coefficients.")
+            if variant == "evaluate":
+                x = random.randint(2, 6)
+                a, b = random.randint(2, 5), random.randint(1, 10)
+                return make_question(f"Evaluate {a}x² - {b} when x = {x}.", a * (x ** 2) - b, "Substitute the value of x and follow order of operations.")
+            if variant == "distribute":
+                a, b, c = random.randint(2, 5), random.randint(1, 6), random.randint(1, 6)
+                return make_question(f"Expand: {a}({b}x + {c}).", f"{a * b}x + {a * c}", "Multiply the outer term by each term inside the parentheses.")
+            a = random.randint(2, 5)
+            b = random.randint(2, 6)
+            return make_question(f"Factor: x² + {a + b}x + {a * b}.", f"(x + {a})(x + {b})", "Find two numbers that multiply to the constant and add to the coefficient of x.")
+
+        if selected_topic == "geometry":
+            variant = random.choice(["rectangle_area", "triangle_area", "perimeter", "circle_circumference", "missing_angle", "volume"])
+            if variant == "rectangle_area":
+                l, w = random.randint(3, 15), random.randint(2, 10)
+                return make_question(f"Find the area of a rectangle with length {l} and width {w}.", l * w, "Multiply length by width.")
+            if variant == "triangle_area":
+                b, h = random.randint(4, 14), random.randint(2, 10)
+                return make_question(f"Find the area of a triangle with base {b} and height {h}.", (b * h) / 2, "Multiply base by height and divide by 2.")
+            if variant == "perimeter":
+                s1, s2, s3 = random.randint(3, 9), random.randint(3, 9), random.randint(3, 9)
+                return make_question(f"Find the perimeter of a triangle with sides {s1}, {s2}, and {s3}.", s1 + s2 + s3, "Add the lengths of all outer sides.")
+            if variant == "circle_circumference":
+                r = random.choice([7, 14, 21])
+                return make_question(f"Find the approximate circumference of a circle with radius {r} (use π ≈ 22/7).", int(2 * (22 / 7) * r), "Use the formula C = 2πr.")
+            if variant == "missing_angle":
+                a, b = random.randint(30, 80), random.randint(30, 80)
+                return make_question(f"In a triangle, two angles are {a}° and {b}°. What is the third angle?", 180 - (a + b), "The interior angles of a triangle add up to 180°.")
+            l, w, h = random.randint(2, 6), random.randint(2, 6), random.randint(2, 6)
+            return make_question(f"Find the volume of a rectangular prism with dimensions {l} × {w} × {h}.", l * w * h, "Multiply length, width, and height.")
+
+        if selected_topic == "word-problems":
+            variant = random.choice(["shopping", "distance", "reading", "sharing"])
+            if variant == "shopping":
+                price = random.randint(3, 12)
+                qty = random.randint(2, 6)
+                paid = qty * price + random.choice([5, 10])
+                return make_question(f"A book costs ${price}. Leo buys {qty} books and pays with a ${paid} bill. How much change does he get?", paid - (qty * price), "Multiply price by quantity, then subtract from amount paid.")
+            if variant == "distance":
+                speed = random.choice([30, 40, 50, 60])
+                hours = random.randint(2, 5)
+                return make_question(f"A car travels at {speed} mph for {hours} hours. How far does it go?", speed * hours, "Use distance = speed × time.")
+            if variant == "reading":
+                total = random.choice([100, 120, 150, 200])
+                per_day = random.choice([10, 15, 20, 25])
+                return make_question(f"Nora is reading a {total}-page book. If she reads {per_day} pages a day, how many days will it take her to finish?", total // per_day, "Divide total pages by pages read per day.")
+            total_candies = random.randint(20, 50)
+            friends = random.randint(3, 7)
+            return make_question(f"Liam has {total_candies} candies to share equally among {friends} friends. How many candies are left over?", total_candies % friends, "Use the remainder after division.")
 
         if selected_topic == "probability":
-            variant = random.choice(["bag", "die", "deck", "spinners", "chance"])
-            if variant == "bag":
-                favorable = random.randint(1, 4)
-                total = favorable + random.randint(2, 5)
-                return make_question(f"A bag contains {total} marbles, {favorable} of which are red. What is the probability of picking a red marble?", f"{favorable}/{total}", "Probability is favorable outcomes divided by total outcomes.")
-            if variant == "die":
-                return make_question("A fair die is rolled. What is the probability of rolling an even number?", "3/6", "There are three even outcomes out of six total outcomes.")
-            if variant == "deck":
-                return make_question("What is the probability of drawing a heart from a standard deck of cards?", "13/52", "There are 13 hearts in a 52-card deck.")
-            if variant == "spinners":
-                return make_question("A spinner has 4 equal sections labeled red, blue, green, and yellow. What is the probability of landing on blue?", "1/4", "There is one favorable section out of four total sections.")
-            return make_question(f"If the chance of rain is {random.randint(20, 80)}%, what is the chance that it will not rain?", f"{100 - random.randint(20, 80)}%", "The probabilities of an event and its complement add to 100%.")
+            variant = random.choice(["dice", "coins", "marbles", "spinners"])
+            if variant == "dice":
+                target = random.choice(["an even number", "a number greater than 4", "a 6"])
+                ans = "1/2" if target == "an even number" else "1/3" if target == "a number greater than 4" else "1/6"
+                return make_question(f"When rolling a fair 6-sided die, what is the probability of rolling {target}?", ans, "Count favorable outcomes and divide by 6 possible outcomes.")
+            if variant == "coins":
+                return make_question("If you flip two fair coins, what is the probability of getting two heads?", "1/4", "Each coin has a 1/2 chance; multiply 1/2 × 1/2.")
+            if variant == "marbles":
+                red, blue = random.randint(2, 5), random.randint(2, 5)
+                total = red + blue
+                return make_question(f"A bag contains {red} red marbles and {blue} blue marbles. What is the probability of picking a red marble?", f"{red}/{total}", "Divide red marbles by total marbles.")
+            return make_question("A spinner has 4 equal sections labeled red, blue, green, and yellow. What is the probability of landing on blue?", "1/4", "There is 1 blue section out of 4 total sections.")
 
         if selected_topic == "statistics":
-            variant = random.choice(["mean", "median", "mode", "range", "spread"])
+            variant = random.choice(["mean", "median", "range", "mode"])
+            data = [random.randint(2, 15) for _ in range(5)]
             if variant == "mean":
-                numbers = [random.randint(1, 10) for _ in range(4)]
-                avg = sum(numbers) / len(numbers)
-                return make_question(f"What is the mean of {numbers}?", f"{avg:.1f}", "The mean is the sum of the values divided by how many values there are.")
+                data = [x * 2 for x in random.sample(range(1, 10), 5)]
+                return make_question(f"Find the mean of this data set: {', '.join(map(str, data))}.", sum(data) // len(data), "Add all values and divide by the number of values.")
             if variant == "median":
-                numbers = [random.randint(1, 10) for _ in range(5)]
-                sorted_numbers = sorted(numbers)
-                mid = len(sorted_numbers) // 2
-                return make_question(f"What is the median of {numbers}?", sorted_numbers[mid] if len(sorted_numbers) % 2 else (sorted_numbers[mid - 1] + sorted_numbers[mid]) / 2, "The median is the middle value when the data is ordered.")
-            if variant == "mode":
-                numbers = [random.randint(1, 6) for _ in range(6)]
-                return make_question(f"What is the mode of {numbers}?", max(set(numbers), key=numbers.count), "The mode is the value that appears most often.")
+                sorted_data = sorted(data)
+                return make_question(f"Find the median of this data set: {', '.join(map(str, data))}.", sorted_data[len(sorted_data) // 2], "Order the numbers from least to greatest and pick the middle value.")
             if variant == "range":
-                numbers = [random.randint(1, 10) for _ in range(4)]
-                return make_question(f"What is the range of {numbers}?", max(numbers) - min(numbers), "Range is the largest value minus the smallest value.")
-            numbers = [random.randint(1, 10) for _ in range(5)]
-            return make_question(f"Which value is most likely to be an outlier in {numbers}?", max(numbers), "An outlier stands far away from the rest of the data.")
+                return make_question(f"Find the range of this data set: {', '.join(map(str, data))}.", max(data) - min(data), "Subtract the smallest value from the largest value.")
+            val = random.randint(3, 9)
+            data = [val, val, random.randint(1, 2), random.randint(10, 12)]
+            random.shuffle(data)
+            return make_question(f"Find the mode of this data set: {', '.join(map(str, data))}.", val, "The mode is the number that appears most frequently.")
 
         if selected_topic == "exponents":
-            variant = random.choice(["evaluate", "simplify", "power", "square", "negative"])
-            if variant == "evaluate":
-                base = random.randint(2, 5)
-                power = random.randint(2, 3)
-                return make_question(f"Evaluate {base}^{power}.", base ** power, "Multiply the base by itself as many times as the exponent indicates.")
-            if variant == "simplify":
-                base = random.randint(2, 4)
-                power = random.randint(2, 4)
-                return make_question(f"Simplify {base}^{power} × {base}^{2}.", base ** (power + 2), "When multiplying like bases, add the exponents.")
+            variant = random.choice(["power", "product_rule", "zero_exponent", "expanded"])
             if variant == "power":
-                base = random.randint(3, 6)
-                return make_question(f"What is {base}²?", base ** 2, "Square the base by multiplying it by itself.")
-            if variant == "square":
-                return make_question("Write 5^3 as a product of factors.", "5 × 5 × 5", "An exponent tells how many times to multiply the base by itself.")
-            return make_question("What is 2^0?", "1", "Any nonzero number raised to the zero power equals 1.")
+                base, exp = random.randint(2, 6), random.randint(2, 4)
+                return make_question(f"Evaluate: {base}^{exp}.", base ** exp, "Multiply the base by itself exponent times.")
+            if variant == "product_rule":
+                base = random.choice(["x", "y", "a"])
+                e1, e2 = random.randint(2, 5), random.randint(2, 5)
+                return make_question(f"Simplify: {base}^{e1} × {base}^{e2}.", f"{base}^{e1 + e2}", "When multiplying powers with the same base, add the exponents.")
+            if variant == "zero_exponent":
+                val = random.randint(5, 50)
+                return make_question(f"Evaluate: {val}^0.", 1, "Any non-zero number raised to the zero power equals 1.")
+            return make_question("Write 5^3 as a product of factors.", "5 × 5 × 5", "An exponent tells how many times to multiply the base by itself.")
 
-        if selected_topic == "ratios":
-            variant = random.choice(["recipe", "scale", "simplify", "compare", "units"])
-            if variant == "recipe":
-                a, b = random.randint(2, 6), random.randint(2, 6)
-                return make_question(f"A recipe uses {a} cups of flour for every {b} cups of sugar. What is the ratio of flour to sugar?", f"{a}:{b}", "A ratio compares the two quantities directly.")
-            if variant == "scale":
-                a, b = random.randint(2, 6), random.randint(2, 6)
-                return make_question(f"If the ratio of cats to dogs is {a}:{b}, how many cats are there for every {b} dogs?", a, "Use the first number in the ratio for the first quantity.")
-            if variant == "simplify":
-                a, b = random.randint(2, 8), random.randint(2, 8)
-                return make_question(f"Simplify the ratio {a}:{b}.", f"{a // 2}:{b // 2}" if a % 2 == 0 and b % 2 == 0 else f"{a}:{b}", "Divide both parts by the same factor.")
-            if variant == "compare":
-                return make_question("Which ratio is greater: 2:3 or 3:4?", "3:4", "Compare the two ratios by finding equivalent forms.")
-            return make_question(f"A map uses a scale of {random.randint(1, 4)} cm to {random.randint(2, 6)} km. What does this represent?", f"{random.randint(1, 4)} cm : {random.randint(2, 6)} km", "A scale compares map distance to real distance.")
+        return make_question("What is 2^3 + 4?", 12, "Evaluate exponent first, then add.")
 
-        if selected_topic == "functions":
-            variant = random.choice(["linear", "input-output", "graph", "table"])
-            if variant == "linear":
-                x = random.randint(1, 5)
-                return make_question(f"If f(x) = 2x + 3, what is f({x})?", 2 * x + 3, "Substitute the given value into the function rule.")
-            if variant == "input-output":
-                x = random.randint(1, 4)
-                return make_question(f"If g(x) = x² + 1, what is g({x})?", x * x + 1, "Square the input and add 1.")
-            if variant == "graph":
-                return make_question("What is the y-intercept of y = 3x + 4?", "4", "The y-intercept is the constant term.")
-            return make_question(f"Complete the table for y = x + 2 when x = {random.randint(1, 4)}.", random.randint(1, 4) + 2, "Add 2 to the input value.")
-
-        if selected_topic == "sequences":
-            variant = random.choice(["next", "term", "pattern", "difference"])
-            if variant == "next":
-                start = random.randint(1, 6)
-                step = random.randint(2, 4)
-                return make_question(f"What is the next number in the sequence: {start}, {start + step}, {start + 2 * step}, ?", start + 3 * step, "Look for the common difference between consecutive terms.")
-            if variant == "term":
-                start = random.randint(2, 5)
-                return make_question(f"What is the 5th term of the sequence 2, 4, 6, 8, ...?", 10, "Count by 2s.")
-            if variant == "pattern":
-                return make_question("What comes next: 1, 3, 9, 27, ?", "81", "Multiply by 3 each time.")
-            return make_question("What is the missing term: 10, 15, __, 25?", "20", "Add 5 each time.")
-
-        if selected_topic == "inequalities":
-            variant = random.choice(["solve", "graph", "compare", "bound"])
-            if variant == "solve":
-                x = random.randint(2, 6)
-                return make_question(f"Solve the inequality: x + 3 > {x + 4}", "x > 1", "Subtract 3 from both sides to isolate x.")
-            if variant == "graph":
-                return make_question("Which inequality means x is greater than 4?", "x > 4", "Look for the statement that says x is larger than 4.")
-            if variant == "compare":
-                return make_question("Is 5 greater than or equal to 5?", "True", "Equal values satisfy the phrase greater than or equal to.")
-            return make_question("If x < 3, which values could x be?", "2", "Pick a value smaller than 3.")
-
-        if selected_topic == "trigonometry":
-            variant = random.choice(["sin", "cos", "tan", "special"])
-            if variant == "sin":
-                angle = random.choice([30, 45, 60])
-                return make_question(f"What is sin({angle}°)?", {30: "1/2", 45: "√2/2", 60: "√3/2"}[angle], "Use the common exact-value trigonometric ratios for special angles.")
-            if variant == "cos":
-                angle = random.choice([30, 45, 60])
-                return make_question(f"What is cos({angle}°)?", {30: "√3/2", 45: "√2/2", 60: "1/2"}[angle], "Use the common exact-value trigonometric ratios for special angles.")
-            if variant == "tan":
-                return make_question("What is tan(45°)?", "1", "Tangent is opposite over adjacent and equals 1 for a 45-degree angle.")
-            return make_question("Which trig function is opposite over hypotenuse?", "Sine", "Sine compares the opposite side to the hypotenuse.")
-
-        coeff = random.randint(2, 5)
-        power = random.randint(2, 4)
-        return make_question(f"Find the derivative of f(x) = {coeff}x^{power} + 3x", f"{coeff * power}x^{power - 1} + 3", "Differentiate each term by bringing the exponent down and subtracting one.")
-
-    for index in range(count):
-        selected_topic = topic if topic != "mixed" else random.choice(topic_pool)
+    for _ in range(count):
+        selected_topic = random.choice(topic_pool) if topic == "mixed" else topic
         if topic != "mixed" and selected_topic not in topic_pool:
-            selected_topic = random.choice(topic_pool)
-        if selected_topic in {"trigonometry", "calculus"} and grade_band != "9-12":
-            selected_topic = random.choice([t for t in topic_pool if t not in {"trigonometry", "calculus"}])
+            selected_topic = topic_pool[0]
 
-        compatible_styles = ["multiple-choice", "short-answer", "fill-in-the-blank", "ordering", "multiple-select", "true-false"]
-        if question_type == "mixed":
-            kind = "true-false" if index == 0 else random.choice(compatible_styles)
-        else:
-            kind = question_type
-        difficulty = {"k-2": "Beginner", "3-5": "Foundational", "6-8": "Intermediate", "9-12": "Advanced"}[grade_band]
-        generated = build_question(selected_topic, kind, difficulty)
+        kind = random.choice(["multiple-choice", "fill-in-the-blank", "true-false", "ordering", "multiple-select"]) if question_type == "mixed" else question_type
+        difficulty = random.choice(["easy", "medium", "hard"])
+        question = build_question(selected_topic, kind, difficulty)
 
-        question = {
-            "id": f"q-{index + 1}",
-            "question": generated["question"],
-            "answer": str(generated["answer"]),
-            "topic": selected_topic.replace("-", " ").title(),
-            "type": kind,
-            "difficulty": difficulty,
-            "explanation": generated["explanation"],
-        }
+        question["topic"] = selected_topic
+        question["difficulty"] = difficulty
+        question["type"] = kind
 
-        if kind in {"multiple-choice", "true-false"}:
-            distractors = []
-            if selected_topic in ["arithmetic", "algebra", "geometry", "percentages", "word-problems", "ratios", "exponents", "functions", "sequences", "inequalities"]:
+        if kind in ["multiple-choice", "multiple-select", "true-false"]:
+            if selected_topic == "arithmetic":
                 try:
-                    distractors = [str(int(question["answer"]) + random.randint(1, 5)), str(int(question["answer"]) - random.randint(1, 5)), str(int(question["answer"]) + random.randint(2, 8))]
+                    num_ans = int(question["answer"])
+                    distractors = [str(num_ans + 1), str(num_ans - 1), str(num_ans + 2)]
                 except ValueError:
-                    distractors = ["2", "3", "4"]
+                    distractors = ["10", "12", "15"]
             elif selected_topic == "fractions":
                 distractors = [str(Fraction(1, 2)), str(Fraction(3, 4)), str(Fraction(1, 4))]
             elif selected_topic == "probability":
@@ -511,23 +396,34 @@ def generate_math():
 
         questions.append(question)
 
-    return jsonify({"status": "success", "questions": questions})
+    return {"status": "success", "questions": questions}
 
 
-@app.route("/api/import-questions", methods=["POST"])
-def import_questions():
-    data = request.json
-    raw_text = data.get("text", "")
+@app.post("/api/import-questions")
+async def import_questions(payload: ImportQuestionsRequest):
+    raw_text = payload.text
     lines = [line.strip() for line in raw_text.split("\n") if line.strip()]
     parsed = []
 
     for line in lines:
-        clean_line = re.sub(r"^(Q?\d+[\.\)\:]?|\-|\*)\s*", "", line, flags=re.I)
-        if clean_line:
-            parsed.append({"question": clean_line, "status": "Ready to assign"})
+        clean_line = re.sub(r"^(Q?\d+[\.\)\:]?|\-|\*)\s*", "", line, flags=re.IGNORECASE)
+        if len(clean_line) > 3:
+            parsed.append({
+                "question": clean_line, 
+                "answer": "To be determined", 
+                "explanation": "Imported item. Add custom explanation or review manually.", 
+                "choices": [clean_line, "True", "False", "None of the above"]
+            })
 
-    return jsonify({"status": "success", "imported": parsed})
+    return {"status": "success", "questions": parsed[:50]}
+
+
+# ==========================================
+# STATIC FILE SERVING (MOUNT LAST)
+# ==========================================
+# Mount the root folder to serve app.js, styles.css, etc.
+app.mount("/", StaticFiles(directory=".", html=False), name="static")
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    uvicorn.run("app:app", host="127.0.0.1", port=5000, reload=True)
