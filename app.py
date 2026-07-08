@@ -34,31 +34,34 @@ class ImportQuestionsRequest(BaseModel):
 # HTML TEMPLATE ROUTES
 # ==========================================
 
+
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="index.html")
 
 
 @app.get("/login", response_class=HTMLResponse)
 async def login(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="login.html")
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
-    return templates.TemplateResponse("dashboard.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="dashboard.html")
 
 
 @app.get("/math-generator", response_class=HTMLResponse)
 async def math_generator(request: Request):
-    return templates.TemplateResponse("math-generator.html", {"request": request})
+    return templates.TemplateResponse(
+        request=request, name="math-generator.html"
+    )
 
 
 @app.get("/question-importer", response_class=HTMLResponse)
 async def question_importer(request: Request):
-    return templates.TemplateResponse("question-importer.html", {"request": request})
-
-
+    return templates.TemplateResponse(
+        request=request, name="question-importer.html"
+    )
 # ==========================================
 # API ENDPOINTS
 # ==========================================
