@@ -103,11 +103,103 @@ document.addEventListener("DOMContentLoaded", () => {
     ----------------------------------------------------------- */
     const generateMathBtn = document.getElementById("generate-math-btn");
     const mathResults = document.getElementById("math-results");
+    const savedQuestionsList = document.getElementById("saved-questions-list");
+    const reviewQuestionsList = document.getElementById("review-questions-list");
+    const gradeSelect = document.getElementById("grade-select");
+    const topicSelect = document.getElementById("topic-select");
 
-    if (generateMathBtn) {
+    const gradeTopicMap = {
+        k: ["mixed", "arithmetic", "counting", "shapes"],
+        1: ["mixed", "arithmetic", "counting", "shapes"],
+        2: ["mixed", "arithmetic", "counting", "shapes"],
+        3: ["mixed", "arithmetic", "fractions", "percentages", "word-problems", "geometry"],
+        4: ["mixed", "arithmetic", "fractions", "percentages", "word-problems", "geometry"],
+        5: ["mixed", "arithmetic", "fractions", "percentages", "word-problems", "geometry"],
+        6: ["mixed", "arithmetic", "fractions", "percentages", "word-problems", "algebra", "geometry", "probability", "statistics", "exponents", "ratios"],
+        7: ["mixed", "arithmetic", "fractions", "percentages", "word-problems", "algebra", "geometry", "probability", "statistics", "exponents", "ratios"],
+        8: ["mixed", "arithmetic", "fractions", "percentages", "word-problems", "algebra", "geometry", "probability", "statistics", "exponents", "ratios"],
+        9: ["mixed", "arithmetic", "fractions", "percentages", "word-problems", "algebra", "geometry", "probability", "statistics", "exponents", "ratios", "functions", "sequences", "inequalities", "trigonometry", "calculus"],
+        10: ["mixed", "arithmetic", "fractions", "percentages", "word-problems", "algebra", "geometry", "probability", "statistics", "exponents", "ratios", "functions", "sequences", "inequalities", "trigonometry", "calculus"],
+        11: ["mixed", "arithmetic", "fractions", "percentages", "word-problems", "algebra", "geometry", "probability", "statistics", "exponents", "ratios", "functions", "sequences", "inequalities", "trigonometry", "calculus"],
+        12: ["mixed", "arithmetic", "fractions", "percentages", "word-problems", "algebra", "geometry", "probability", "statistics", "exponents", "ratios", "functions", "sequences", "inequalities", "trigonometry", "calculus"]
+    };
+
+    function updateTopicOptions() {
+        if (!topicSelect || !gradeSelect) return;
+
+        const allowedTopics = gradeTopicMap[gradeSelect.value] || gradeTopicMap[12];
+        Array.from(topicSelect.options).forEach(option => {
+            const isAllowed = allowedTopics.includes(option.value);
+            option.hidden = !isAllowed;
+            option.disabled = !isAllowed;
+        });
+
+        if (!allowedTopics.includes(topicSelect.value)) {
+            topicSelect.value = "mixed";
+        }
+    }
+
+    if (gradeSelect && topicSelect) {
+        updateTopicOptions();
+        gradeSelect.addEventListener("change", updateTopicOptions);
+    }
+
+    if (generateMathBtn && mathResults) {
+        let practiceQueue = JSON.parse(localStorage.getItem("eduMathPractice")) || { saved: [], review: [] };
+
+        function savePracticeState() {
+            localStorage.setItem("eduMathPractice", JSON.stringify(practiceQueue));
+        }
+
+        function normalizeAnswer(value) {
+            return value.trim().toLowerCase().replace(/^x\s*=\s*/, "").replace(/^answer\s*[:=]\s*/, "").replace(/\s+/g, "");
+        }
+
+        function addPracticeItem(question, bucket) {
+            const entry = {
+                id: question.id,
+                question: question.question,
+                answer: question.answer,
+                topic: question.topic,
+                type: question.type
+            };
+
+            const existing = practiceQueue[bucket].some(item => item.id === entry.id);
+            if (!existing) {
+                practiceQueue[bucket].push(entry);
+                savePracticeState();
+            }
+        }
+
+        function renderPracticeQueue() {
+            if (savedQuestionsList) {
+                savedQuestionsList.innerHTML = practiceQueue.saved.length
+                    ? practiceQueue.saved.map(item => `
+                        <li class="practice-item">
+                            <p><strong>${item.topic}</strong><br>${item.question}</p>
+                            <button class="btn btn-outline btn-small" onclick="this.closest('li').remove(); const current=JSON.parse(localStorage.getItem('eduMathPractice')||'{"saved":[],"review":[]}'); current.saved=current.saved.filter(entry=>entry.id!=='${item.id}'); localStorage.setItem('eduMathPractice', JSON.stringify(current));">Remove</button>
+                        </li>
+                    `).join("")
+                    : '<li class="practice-empty">Nothing saved yet.</li>';
+            }
+
+            if (reviewQuestionsList) {
+                reviewQuestionsList.innerHTML = practiceQueue.review.length
+                    ? practiceQueue.review.map(item => `
+                        <li class="practice-item">
+                            <p><strong>${item.topic}</strong><br>${item.question}</p>
+                            <button class="btn btn-outline btn-small" onclick="this.closest('li').remove(); const current=JSON.parse(localStorage.getItem('eduMathPractice')||'{"saved":[],"review":[]}'); current.review=current.review.filter(entry=>entry.id!=='${item.id}'); localStorage.setItem('eduMathPractice', JSON.stringify(current));">Remove</button>
+                        </li>
+                    `).join("")
+                    : '<li class="practice-empty">No missed questions yet.</li>';
+            }
+        }
+
         generateMathBtn.addEventListener("click", async () => {
             const grade = document.getElementById("grade-select").value;
             const count = document.getElementById("q-count").value;
+            const topic = document.getElementById("topic-select").value;
+            const questionType = document.getElementById("question-type-select").value;
 
             mathResults.innerHTML = "<p style='color:var(--text-muted);'>Generating practice problems...</p>";
 
@@ -115,7 +207,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const response = await fetch("/api/generate-math", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ grade, count })
+                    body: JSON.stringify({ grade, count, topic, questionType })
                 });
                 const data = await response.json();
 
@@ -123,11 +215,94 @@ document.addEventListener("DOMContentLoaded", () => {
                     mathResults.innerHTML = "";
                     data.questions.forEach((q, index) => {
                         const div = document.createElement("div");
-                        div.className = "q-item fade-in";
+                        div.className = "q-item math-question-card fade-in";
                         div.innerHTML = `
-                            <div><strong>Q${index + 1}:</strong> ${q.question}</div>
-                            <button class="btn btn-outline btn-small" onclick="alert('Solution: ${q.answer}')">View Solution</button>
+                            <div class="math-question-block">
+                                <div class="question-meta">
+                                    <span class="topic-pill">${q.topic}</span>
+                                    <span class="question-type-pill">${q.type === "multiple-choice" ? "Multiple choice" : q.type === "true-false" ? "True / False" : q.type === "fill-in-the-blank" ? "Fill in the blank" : q.type === "multiple-select" ? "Multiple select" : q.type === "ordering" ? "Ordering" : "Type answer"}</span>
+                                    <span class="question-type-pill">${q.difficulty || "Mixed"}</span>
+                                </div>
+                                <div><strong>Q${index + 1}:</strong> ${q.question}</div>
+                                <div class="answer-options"></div>
+                                <input class="answer-input hidden" type="text" placeholder="Type your answer here">
+                                <div class="answer-feedback"></div>
+                            </div>
+                            <div class="question-actions">
+                                <button class="btn btn-outline btn-small save-practice-btn">Save for Practice</button>
+                                <button class="btn btn-primary btn-small check-answer-btn">Check Answer</button>
+                            </div>
                         `;
+
+                        const optionsContainer = div.querySelector(".answer-options");
+                        const answerInput = div.querySelector(".answer-input");
+                        const feedback = div.querySelector(".answer-feedback");
+                        const saveButton = div.querySelector(".save-practice-btn");
+                        const checkButton = div.querySelector(".check-answer-btn");
+
+                        if ((q.type === "multiple-choice" || q.type === "true-false" || q.type === "multiple-select") && q.choices) {
+                            answerInput.classList.add("hidden");
+                            q.choices.forEach(choice => {
+                                const choiceBtn = document.createElement("button");
+                                choiceBtn.type = "button";
+                                choiceBtn.className = "choice-btn";
+                                choiceBtn.textContent = choice;
+                                choiceBtn.addEventListener("click", () => {
+                                    if (q.type === "multiple-select") {
+                                        choiceBtn.classList.toggle("selected");
+                                        choiceBtn.dataset.selected = choiceBtn.classList.contains("selected") ? "true" : "false";
+                                    } else {
+                                        div.querySelectorAll(".choice-btn").forEach(btn => btn.classList.remove("selected"));
+                                        choiceBtn.classList.add("selected");
+                                        choiceBtn.dataset.selected = "true";
+                                    }
+                                });
+                                optionsContainer.appendChild(choiceBtn);
+                            });
+                        } else {
+                            optionsContainer.classList.add("hidden");
+                            answerInput.classList.remove("hidden");
+                        }
+
+                        saveButton.addEventListener("click", () => {
+                            addPracticeItem(q, "saved");
+                            renderPracticeQueue();
+                            feedback.className = "answer-feedback correct";
+                            feedback.textContent = "Saved for practice.";
+                        });
+
+                        checkButton.addEventListener("click", () => {
+                            let userAnswer = "";
+
+                            if (q.type === "multiple-choice" || q.type === "true-false") {
+                                const selected = div.querySelector(".choice-btn.selected");
+                                userAnswer = selected ? selected.textContent : "";
+                            } else if (q.type === "multiple-select") {
+                                userAnswer = Array.from(div.querySelectorAll(".choice-btn.selected"))
+                                    .map(btn => btn.textContent.trim())
+                                    .join(",");
+                            } else {
+                                userAnswer = answerInput.value;
+                            }
+
+                            if (!userAnswer.trim()) {
+                                feedback.className = "answer-feedback incorrect";
+                                feedback.textContent = "Choose or type an answer first.";
+                                return;
+                            }
+
+                            const isCorrect = normalizeAnswer(userAnswer) === normalizeAnswer(q.answer);
+                            if (isCorrect) {
+                                feedback.className = "answer-feedback correct";
+                                feedback.textContent = `Correct! ${q.explanation}`;
+                            } else {
+                                feedback.className = "answer-feedback incorrect";
+                                feedback.textContent = `Not quite. The correct answer is ${q.answer}. ${q.explanation}`;
+                                addPracticeItem(q, "review");
+                                renderPracticeQueue();
+                            }
+                        });
+
                         mathResults.appendChild(div);
                     });
                 }
@@ -136,6 +311,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 console.error(error);
             }
         });
+
+        renderPracticeQueue();
     }
 
     /* -----------------------------------------------------------

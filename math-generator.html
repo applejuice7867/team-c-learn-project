@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Math Generator | EduPulse</title>
+    <title>Math | EduPulse</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -28,7 +28,7 @@
         <aside class="sidebar">
             <a class="tab-btn active" href="/math-generator">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                Math Generator
+                Math
             </a>
             <a class="tab-btn" href="/question-importer">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
@@ -50,26 +50,87 @@
 
         <main class="dashboard-content">
             <div class="pane-header">
-                <h2>K-12 Math Question Generator</h2>
+                <h2>Math</h2>
                 <p>Select your target grade level to dynamically generate practice problems and answer keys.</p>
             </div>
             <div class="card control-panel">
                 <div class="input-group inline">
                     <label for="grade-select">Grade Level:</label>
                     <select id="grade-select">
-                        <option value="k-2">Grades K - 2 (Basic Arithmetic)</option>
-                        <option value="3-5">Grades 3 - 5 (Multiplication/Division)</option>
-                        <option value="6-8">Grades 6 - 8 (Pre-Algebra / Linear)</option>
-                        <option value="9-12">Grades 9 - 12 (Algebra & Quadratics)</option>
+                        <option value="k">Kindergarten</option>
+                        <option value="1">Grade 1</option>
+                        <option value="2">Grade 2</option>
+                        <option value="3">Grade 3</option>
+                        <option value="4">Grade 4</option>
+                        <option value="5">Grade 5</option>
+                        <option value="6">Grade 6</option>
+                        <option value="7">Grade 7</option>
+                        <option value="8">Grade 8</option>
+                        <option value="9">Grade 9</option>
+                        <option value="10">Grade 10</option>
+                        <option value="11">Grade 11</option>
+                        <option value="12">Grade 12</option>
+                    </select>
+                </div>
+                <div class="input-group inline">
+                    <label for="topic-select">Topic:</label>
+                    <select id="topic-select">
+                        <option value="mixed">Mixed Review</option>
+                        <option value="arithmetic">Arithmetic</option>
+                        <option value="counting">Counting</option>
+                        <option value="shapes">Shapes</option>
+                        <option value="fractions">Fractions</option>
+                        <option value="percentages">Percentages</option>
+                        <option value="word-problems">Word Problems</option>
+                        <option value="algebra">Algebra</option>
+                        <option value="geometry">Geometry</option>
+                        <option value="probability">Probability</option>
+                        <option value="statistics">Statistics</option>
+                        <option value="exponents">Exponents</option>
+                        <option value="ratios">Ratios</option>
+                        <option value="functions">Functions</option>
+                        <option value="sequences">Sequences</option>
+                        <option value="inequalities">Inequalities</option>
+                        <option value="trigonometry">Trigonometry</option>
+                        <option value="calculus">Calculus</option>
+                    </select>
+                </div>
+                <div class="input-group inline">
+                    <label for="question-type-select">Answer Style:</label>
+                    <select id="question-type-select">
+                        <option value="mixed">Mixed</option>
+                        <option value="multiple-choice">Multiple Choice</option>
+                        <option value="short-answer">Type Answer</option>
+                        <option value="fill-in-the-blank">Fill in the Blank</option>
+                        <option value="multiple-select">Multiple Select</option>
+                        <option value="ordering">Ordering</option>
+                        <option value="true-false">True / False</option>
                     </select>
                 </div>
                 <div class="input-group inline">
                     <label for="q-count">Count:</label>
-                    <input type="number" id="q-count" value="5" min="1" max="20">
+                    <input type="number" id="q-count" value="20" min="1" max="200">
                 </div>
                 <button class="btn btn-primary" id="generate-math-btn">Generate Set</button>
             </div>
             <div id="math-results" class="results-area"></div>
+
+            <section class="practice-section">
+                <div class="pane-header">
+                    <h3>Practice Queue</h3>
+                    <p>Save questions you want to revisit and review anything you missed.</p>
+                </div>
+                <div class="practice-grid">
+                    <div class="card practice-card">
+                        <h4>Saved Questions</h4>
+                        <ul id="saved-questions-list" class="practice-list"></ul>
+                    </div>
+                    <div class="card practice-card">
+                        <h4>Questions to Review</h4>
+                        <ul id="review-questions-list" class="practice-list"></ul>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
