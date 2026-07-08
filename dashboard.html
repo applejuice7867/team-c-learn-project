@@ -27,15 +27,15 @@
 
     <div class="dashboard-container">
         <aside class="sidebar">
-            <button class="tab-btn active" data-tab="tab-math">
+            <a class="tab-btn" href="/math-generator">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 Math Generator
-            </button>
-            <button class="tab-btn" data-tab="tab-import">
+            </a>
+            <a class="tab-btn" href="/question-importer">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
                 Question Importer
-            </button>
-            <button class="tab-btn" data-tab="tab-tasks">
+            </a>
+            <button class="tab-btn active" data-tab="tab-tasks">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                 Daily Tasks
             </button>
@@ -50,42 +50,7 @@
         </aside>
 
         <main class="dashboard-content">
-            
-            <div id="tab-math" class="tab-pane fade-in active">
-                <div class="pane-header">
-                    <h2>K-12 Math Question Generator</h2>
-                    <p>Select your target grade level to dynamically generate practice problems and answer keys.</p>
-                </div>
-                <div class="card control-panel">
-                    <div class="input-group inline">
-                        <label for="grade-select">Grade Level:</label>
-                        <select id="grade-select">
-                            <option value="k-2">Grades K - 2 (Basic Arithmetic)</option>
-                            <option value="3-5">Grades 3 - 5 (Multiplication/Division)</option>
-                            <option value="6-8">Grades 6 - 8 (Pre-Algebra / Linear)</option>
-                            <option value="9-12">Grades 9 - 12 (Algebra & Quadratics)</option>
-                        </select>
-                    </div>
-                    <div class="input-group inline">
-                        <label for="q-count">Count:</label>
-                        <input type="number" id="q-count" value="5" min="1" max="20">
-                    </div>
-                    <button class="btn btn-primary" id="generate-math-btn">Generate Set</button>
-                </div>
-                <div id="math-results" class="results-area"></div>
-            </div>
-
-            <div id="tab-import" class="tab-pane fade-in hidden">
-                <div class="pane-header">
-                    <h2>Text Question Importer</h2>
-                    <p>Paste unformatted text or exam worksheets below to structure them into assignable items.</p>
-                </div>
-                <textarea id="import-textarea" rows="7" placeholder="1. What is the formula for Discounted Cash Flow?&#10;2. Define row-reduced echelon form (RREF).&#10;3. Solve for x when 3x + 15 = 45..."></textarea>
-                <button class="btn btn-primary" id="import-btn">Parse & Import Questions</button>
-                <div id="import-results" class="results-area"></div>
-            </div>
-
-            <div id="tab-tasks" class="tab-pane fade-in hidden">
+            <div id="tab-tasks" class="tab-pane fade-in active">
                 <div class="pane-header">
                     <h2>Daily Task Manager</h2>
                     <p>Keep track of study sessions, coursework deadlines, and teaching objectives.</p>

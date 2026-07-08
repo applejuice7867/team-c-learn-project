@@ -59,20 +59,41 @@ document.addEventListener("DOMContentLoaded", () => {
     /* -----------------------------------------------------------
        3. DASHBOARD TAB SWITCHING
     ----------------------------------------------------------- */
-    const tabBtns = document.querySelectorAll(".tab-btn");
+    const tabBtns = document.querySelectorAll(".tab-btn[data-tab]");
     const tabPanes = document.querySelectorAll(".tab-pane");
 
-    if (tabBtns.length > 0) {
-        tabBtns.forEach(btn => {
-            btn.addEventListener("click", () => {
-                tabBtns.forEach(b => b.classList.remove("active"));
-                tabPanes.forEach(p => p.classList.add("hidden"));
+    function activateTab(targetId) {
+        if (!targetId) return;
 
-                btn.classList.add("active");
+        tabBtns.forEach(btn => btn.classList.toggle("active", btn.getAttribute("data-tab") === targetId));
+        tabPanes.forEach(pane => {
+            const isActive = pane.id === targetId;
+            pane.classList.toggle("hidden", !isActive);
+            pane.classList.toggle("fade-in", isActive);
+        });
+
+        if (window.location.pathname === "/dashboard") {
+            history.replaceState(null, "", `#${targetId}`);
+        }
+    }
+
+    if (tabBtns.length > 0 && tabPanes.length > 0) {
+        const initialTarget = window.location.hash.replace("#", "") || "tab-tasks";
+        const requestedPane = document.getElementById(initialTarget);
+
+        if (requestedPane) {
+            activateTab(initialTarget);
+        } else {
+            activateTab("tab-tasks");
+        }
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener("click", (event) => {
                 const targetId = btn.getAttribute("data-tab");
-                const activePane = document.getElementById(targetId);
-                activePane.classList.remove("hidden");
-                activePane.classList.add("fade-in");
+                if (!targetId) return;
+
+                event.preventDefault();
+                activateTab(targetId);
             });
         });
     }

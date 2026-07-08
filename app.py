@@ -20,6 +20,16 @@ def dashboard():
     return render_template("dashboard.html")
 
 
+@app.route("/math-generator")
+def math_generator():
+    return render_template("math-generator.html")
+
+
+@app.route("/question-importer")
+def question_importer():
+    return render_template("question-importer.html")
+
+
 @app.route("/api/generate-math", methods=["POST"])
 def generate_math():
     data = request.json

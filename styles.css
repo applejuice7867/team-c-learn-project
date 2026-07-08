@@ -249,6 +249,7 @@ body {
     display: flex;
     align-items: center;
     gap: 12px;
+    text-decoration: none;
 }
 .tab-btn svg { width: 20px; height: 20px; }
 .tab-btn:hover { background: rgba(79, 70, 229, 0.05); color: var(--text-main); }
