@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduPulse | Learning & Classroom Platform</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <header class="navbar">
+        <a href="/" class="logo">
+            <svg class="logo-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+            Edu<span>Pulse</span>
+        </a>
+        <nav class="nav-links">
+            <a href="#features">Features</a>
+            <a href="#pricing">Pricing</a>
+            <button class="btn-icon theme-toggle" aria-label="Toggle theme">
+                <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                <svg class="moon-icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </button>
+            <a href="/login" class="btn btn-primary">Join / Login</a>
+        </nav>
+    </header>
+
+    <main class="fade-in">
+        <section class="hero">
+            <div class="hero-content">
+                <div class="badge-pill">Next-Gen Education Workspace</div>
+                <h1>Supercharge Your Classroom & Study Workflow</h1>
+                <p>An integrated suite featuring AI-driven K-12 math generation, automated question importers, smart task tracking, and focus timers.</p>
+                <div class="hero-actions">
+                    <a href="#pricing" class="btn btn-primary btn-large">Explore Pricing</a>
+                    <a href="/login" class="btn btn-outline btn-large">Launch Dashboard</a>
+                </div>
+            </div>
+        </section>
+
+        <section id="features" class="section">
+            <h2 class="section-title">Designed for Educators & Students</h2>
+            <div class="grid features-grid">
+                <div class="card feature-card">
+                    <div class="card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                    </div>
+                    <h3>K-12 Math Generator</h3>
+                    <p>Instantly generate customized practice sets with step-by-step solutions for arithmetic, algebra, and advanced mathematics.</p>
+                </div>
+                <div class="card feature-card">
+                    <div class="card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    </div>
+                    <h3>Question Importer</h3>
+                    <p>Paste raw text from worksheets or quizzes. Our parsing engine cleanly formats and organizes questions for immediate use.</p>
+                </div>
+                <div class="card feature-card">
+                    <div class="card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    </div>
+                    <h3>Smart Study Timers</h3>
+                    <p>Boost productivity with customizable Pomodoro timers, visual countdowns, and integrated daily task management.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="pricing" class="section">
+            <h2 class="section-title">Transparent, Simple Pricing</h2>
+            <div class="grid pricing-grid">
+                <div class="card pricing-card">
+                    <h3>Student Starter</h3>
+                    <div class="price">$0<span>/month</span></div>
+                    <ul>
+                        <li>Basic K-8 Math Generator</li>
+                        <li>Up to 20 Text Imports / day</li>
+                        <li>Daily Task Manager</li>
+                        <li>Pomodoro Study Timers</li>
+                    </ul>
+                    <a href="/login" class="btn btn-outline btn-full">Get Started Free</a>
+                </div>
+                <div class="card pricing-card featured">
+                    <div class="badge">Most Popular</div>
+                    <h3>Pro Educator</h3>
+                    <div class="price">$12<span>/month</span></div>
+                    <ul>
+                        <li>Full K-12 Advanced Math Generator</li>
+                        <li>Unlimited Question Importer</li>
+                        <li>Google Calendar Integration</li>
+                        <li>Priority Support & Cloud Sync</li>
+                    </ul>
+                    <a href="/login" class="btn btn-primary btn-full">Start 14-Day Trial</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>

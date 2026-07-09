@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | EduPulse</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <header class="navbar dashboard-navbar">
+        <a href="/" class="logo">
+            <svg class="logo-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+            Edu<span>Pulse</span>
+        </a>
+        <div class="nav-links">
+            <span class="user-greeting">Welcome back, <strong>Student</strong></span>
+            <button class="btn-icon theme-toggle" aria-label="Toggle theme">
+                <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                <svg class="moon-icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </button>
+            <button id="logout-btn" class="btn btn-outline btn-small">Log Out</button>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <aside class="sidebar">
+            <a class="tab-btn" href="/math-generator">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                Math Generator
+            </a>
+            <a class="tab-btn" href="/question-importer">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                Question Importer
+            </a>
+            <button class="tab-btn active" data-tab="tab-tasks">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                Daily Tasks
+            </button>
+            <button class="tab-btn" data-tab="tab-timers">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Study Timers
+            </button>
+            <button class="tab-btn" data-tab="tab-org">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Organization & Cal
+            </button>
+        </aside>
+
+        <main class="dashboard-content">
+            <div id="tab-tasks" class="tab-pane fade-in active">
+                <div class="pane-header">
+                    <h2>Daily Task Manager</h2>
+                    <p>Keep track of study sessions, coursework deadlines, and teaching objectives.</p>
+                </div>
+                <div class="task-input-bar">
+                    <input type="text" id="new-task-input" placeholder="Add a new coursework or teaching task...">
+                    <button class="btn btn-primary" id="add-task-btn">Add Task</button>
+                </div>
+                <ul id="task-list" class="task-list"></ul>
+            </div>
+
+            <div id="tab-timers" class="tab-pane fade-in hidden">
+                <div class="pane-header">
+                    <h2>Focus & Study Timers</h2>
+                    <p>Use timed intervals to maximize concentration and prevent study burnout.</p>
+                </div>
+                <div class="card timer-card">
+                    <div class="timer-mode-badge" id="timer-label">Pomodoro Focus</div>
+                    <div id="timer-display">25:00</div>
+                    <div class="timer-controls">
+                        <button class="btn btn-primary" id="timer-start">Start Focus</button>
+                        <button class="btn btn-outline" id="timer-pause">Pause</button>
+                        <button class="btn btn-secondary" id="timer-reset">Reset (25m)</button>
+                        <button class="btn btn-outline" id="timer-short">Short Break (5m)</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-org" class="tab-pane fade-in hidden">
+                <div class="pane-header">
+                    <h2>Organization & Schedule</h2>
+                    <p>Connect external calendar feeds to manage your upcoming milestones and classes.</p>
+                </div>
+                <div class="card integration-card">
+                    <div class="icon-header">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        Google Calendar Integration
+                    </div>
+                    <p>Sync class schedules, assignment deadlines, and study timers directly to your personal Google Calendar.</p>
+                    <div class="status-badge">Status: Not Connected</div>
+                    <div style="margin-top: 20px;">
+                        <button class="btn btn-primary" id="gcal-connect-btn">Connect Google Calendar</button>
+                    </div>
+                    <p class="footnote">* Requires OAuth setup in Google Cloud Console. Architectural endpoints are primed and ready for integration.</p>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
