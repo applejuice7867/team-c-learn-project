@@ -91,7 +91,7 @@ async def question_importer(request: Request):
 # ==========================================
 
 @app.post("/api/generate-math")
-async def generate_math(payload: MathGenRequest):
+async def generate_math(payload: MathGenRequest, token=Depends(verify_firebase_token_from_header)):
     grade = payload.grade
     count = min(max(int(payload.count), 1), 200)
     topic = payload.topic
@@ -427,7 +427,7 @@ async def generate_math(payload: MathGenRequest):
 
 
 @app.post("/api/import-questions")
-async def import_questions(payload: ImportQuestionsRequest):
+async def import_questions(payload: ImportQuestionsRequest, token=Depends(verify_firebase_token_from_header)):
     raw_text = payload.text
     lines = [line.strip() for line in raw_text.split("\n") if line.strip()]
     parsed = []

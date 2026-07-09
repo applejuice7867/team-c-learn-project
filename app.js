@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, updateProfile } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, updateProfile, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics.js";
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
 document.addEventListener("DOMContentLoaded", () => {
     /* -----------------------------------------------------------
@@ -42,6 +43,136 @@ document.addEventListener("DOMContentLoaded", () => {
     const firebaseApp = initializeApp(firebaseConfig);
     try { getAnalytics(firebaseApp); } catch (e) { /* analytics may fail in non-browser env */ }
     const auth = getAuth(firebaseApp);
+    const db = getFirestore(firebaseApp);
+
+    const protectedPaths = ["/dashboard", "/math-generator", "/question-importer"];
+    const isProtected = protectedPaths.includes(window.location.pathname);
+
+    async function redirectToLogin() {
+        window.location.href = "/login";
+    }
+
+    async function loadUserState(user) {
+        if (!user) return false;
+        const userDoc = doc(db, "users", user.uid);
+        const snapshot = await getDoc(userDoc);
+        const baseData = snapshot.exists() ? snapshot.data() : { tasks: [], savedQuestions: [], calendar: {}, settings: {} };
+        const displayName = user.displayName || user.email?.split("@")[0] || "Learner";
+
+        document.querySelectorAll(".user-greeting strong").forEach(el => el.textContent = displayName);
+        document.querySelectorAll(".user-greeting").forEach(el => {
+            if (!el.textContent.includes(displayName)) {
+                el.innerHTML = `Welcome back, <strong>${displayName}</strong>`;
+            }
+        });
+
+        localStorage.setItem("eduUserId", user.uid);
+        localStorage.setItem("eduUserEmail", user.email || "");
+        localStorage.setItem("eduUserDisplayName", displayName);
+
+        window.eduUserState = {
+            uid: user.uid,
+            email: user.email,
+            displayName,
+            tasks: baseData.tasks || [],
+            savedQuestions: baseData.savedQuestions || [],
+            reviewQuestions: baseData.reviewQuestions || [],
+            calendar: baseData.calendar || {},
+            settings: baseData.settings || {}
+        };
+
+        hydratePageState();
+        return true;
+    }
+
+    let practiceQueue = { saved: [], review: [] };
+    let tasks = [];
+
+    async function syncUserState() {
+        if (!window.eduUserState || !window.eduUserState.uid) return;
+        const userDoc = doc(db, "users", window.eduUserState.uid);
+        await setDoc(userDoc, {
+            email: window.eduUserState.email,
+            displayName: window.eduUserState.displayName,
+            tasks: window.eduUserState.tasks,
+            savedQuestions: window.eduUserState.savedQuestions,
+            reviewQuestions: window.eduUserState.reviewQuestions,
+            calendar: window.eduUserState.calendar,
+            settings: window.eduUserState.settings,
+            updatedAt: serverTimestamp()
+        }, { merge: true });
+    }
+
+    async function authFetch(url, options = {}) {
+        const currentUser = auth.currentUser;
+        const headers = new Headers(options.headers || {});
+        if (currentUser) {
+            const token = await currentUser.getIdToken();
+            headers.set("Authorization", `Bearer ${token}`);
+        }
+        return fetch(url, { ...options, headers });
+    }
+
+    function hydratePageState() {
+        if (!window.eduUserState) return;
+
+        const displayName = window.eduUserState.displayName || "Learner";
+        document.querySelectorAll(".user-greeting strong").forEach(el => el.textContent = displayName);
+        document.querySelectorAll(".user-greeting").forEach(el => {
+            el.innerHTML = `Welcome back, <strong>${displayName}</strong>`;
+        });
+
+        if (document.getElementById("saved-questions-list") || document.getElementById("review-questions-list")) {
+            practiceQueue = {
+                saved: [...(window.eduUserState.savedQuestions || [])],
+                review: [...(window.eduUserState.reviewQuestions || [])]
+            };
+            if (typeof renderPracticeQueue === "function") renderPracticeQueue();
+        }
+
+        if (document.getElementById("task-list")) {
+            tasks = [...(window.eduUserState.tasks || [])];
+            if (typeof renderTasks === "function") renderTasks();
+        }
+    }
+
+    async function handleLogout() {
+        try {
+            await signOut(auth);
+        } catch (err) {
+            console.warn("Logout error", err);
+        }
+        localStorage.removeItem("eduIdToken");
+        localStorage.removeItem("eduUserId");
+        localStorage.removeItem("eduUserEmail");
+        localStorage.removeItem("eduUserDisplayName");
+        window.eduUserState = null;
+        window.location.href = "/login";
+    }
+
+    async function ensureAuthState() {
+        return new Promise(resolve => {
+            onAuthStateChanged(auth, async (user) => {
+                if (!user) {
+                    if (isProtected) {
+                        await redirectToLogin();
+                    }
+                    return resolve(false);
+                }
+
+                const ok = await loadUserState(user);
+                hydratePageState();
+                if (isProtected) {
+                    // allow protected page to continue
+                }
+                resolve(ok);
+            });
+        });
+    }
+
+    if (isProtected) {
+        ensureAuthState();
+    }
 
     themeToggles.forEach(btn => {
         btn.addEventListener("click", () => {
@@ -104,23 +235,27 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             });
         });
+    }
 
-        // Google sign-in button
-        const googleBtn = document.getElementById('google-signin');
-        if (googleBtn) {
-            googleBtn.addEventListener('click', async () => {
-                const provider = new GoogleAuthProvider();
-                try {
-                    const result = await signInWithPopup(auth, provider);
-                    const token = await result.user.getIdToken();
-                    localStorage.setItem('eduIdToken', token);
-                    window.location.href = '/dashboard';
-                } catch (err) {
-                    alert('Google sign-in failed: ' + (err.message || err));
-                    console.error(err);
-                }
-            });
-        }
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', handleLogout);
+    }
+
+    const googleBtn = document.getElementById('google-signin');
+    if (googleBtn) {
+        googleBtn.addEventListener('click', async () => {
+            const provider = new GoogleAuthProvider();
+            try {
+                const result = await signInWithPopup(auth, provider);
+                const token = await result.user.getIdToken();
+                localStorage.setItem('eduIdToken', token);
+                window.location.href = '/dashboard';
+            } catch (err) {
+                alert('Google sign-in failed: ' + (err.message || err));
+                console.error(err);
+            }
+        });
     }
 
     /* -----------------------------------------------------------
@@ -212,10 +347,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (generateMathBtn && mathResults) {
-        let practiceQueue = JSON.parse(localStorage.getItem("eduMathPractice")) || { saved: [], review: [] };
+        practiceQueue = practiceQueue || { saved: [], review: [] };
 
         function savePracticeState() {
-            localStorage.setItem("eduMathPractice", JSON.stringify(practiceQueue));
+            if (window.eduUserState) {
+                window.eduUserState.savedQuestions = practiceQueue.saved;
+                window.eduUserState.reviewQuestions = practiceQueue.review;
+                syncUserState();
+            }
         }
 
         function normalizeAnswer(value) {
@@ -244,7 +383,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     ? practiceQueue.saved.map(item => `
                         <li class="practice-item">
                             <p><strong>${item.topic}</strong><br>${item.question}</p>
-                            <button class="btn btn-outline btn-small" onclick="this.closest('li').remove(); const current=JSON.parse(localStorage.getItem('eduMathPractice')||'{"saved":[],"review":[]}'); current.saved=current.saved.filter(entry=>entry.id!=='${item.id}'); localStorage.setItem('eduMathPractice', JSON.stringify(current));">Remove</button>
+                            <button class="btn btn-outline btn-small" data-id="${item.id}" data-bucket="saved">Remove</button>
                         </li>
                     `).join("")
                     : '<li class="practice-empty">Nothing saved yet.</li>';
@@ -255,11 +394,21 @@ document.addEventListener("DOMContentLoaded", () => {
                     ? practiceQueue.review.map(item => `
                         <li class="practice-item">
                             <p><strong>${item.topic}</strong><br>${item.question}</p>
-                            <button class="btn btn-outline btn-small" onclick="this.closest('li').remove(); const current=JSON.parse(localStorage.getItem('eduMathPractice')||'{"saved":[],"review":[]}'); current.review=current.review.filter(entry=>entry.id!=='${item.id}'); localStorage.setItem('eduMathPractice', JSON.stringify(current));">Remove</button>
+                            <button class="btn btn-outline btn-small" data-id="${item.id}" data-bucket="review">Remove</button>
                         </li>
                     `).join("")
                     : '<li class="practice-empty">No missed questions yet.</li>';
             }
+
+            document.querySelectorAll('.practice-item button[data-bucket]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const id = btn.dataset.id;
+                    const bucket = btn.dataset.bucket;
+                    practiceQueue[bucket] = practiceQueue[bucket].filter(item => item.id !== id);
+                    savePracticeState();
+                    renderPracticeQueue();
+                });
+            });
         }
 
         generateMathBtn.addEventListener("click", async () => {
@@ -271,7 +420,7 @@ document.addEventListener("DOMContentLoaded", () => {
             mathResults.innerHTML = "<p style='color:var(--text-muted);'>Generating practice problems...</p>";
 
             try {
-                const response = await fetch("/api/generate-math", {
+                        const response = await authFetch("/api/generate-math", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ grade, count, topic, questionType })
@@ -331,11 +480,12 @@ document.addEventListener("DOMContentLoaded", () => {
                             answerInput.classList.remove("hidden");
                         }
 
-                        saveButton.addEventListener("click", () => {
-                            addPracticeItem(q, "saved");
-                            renderPracticeQueue();
-                            feedback.className = "answer-feedback correct";
-                            feedback.textContent = "Saved for practice.";
+saveButton.addEventListener("click", async () => {
+            addPracticeItem(q, "saved");
+            renderPracticeQueue();
+            feedback.className = "answer-feedback correct";
+            feedback.textContent = "Saved for practice.";
+            await syncUserState();
                         });
 
                         checkButton.addEventListener("click", () => {
@@ -367,6 +517,7 @@ document.addEventListener("DOMContentLoaded", () => {
                                 feedback.textContent = `Not quite. The correct answer is ${q.answer}. ${q.explanation}`;
                                 addPracticeItem(q, "review");
                                 renderPracticeQueue();
+                                await syncUserState();
                             }
                         });
 
@@ -396,7 +547,7 @@ document.addEventListener("DOMContentLoaded", () => {
             importResults.innerHTML = "<p style='color:var(--text-muted);'>Parsing questions...</p>";
 
             try {
-                const response = await fetch("/api/import-questions", {
+                const response = await authFetch("/api/import-questions", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ text })
@@ -430,10 +581,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const taskList = document.getElementById("task-list");
 
     if (taskList) {
-        let tasks = JSON.parse(localStorage.getItem("eduTasks")) || [
+        tasks = window.eduUserState?.tasks || [
             { text: "Grade K-2 Math Worksheets", completed: false },
             { text: "Review Lesson Plan for Algebra", completed: true }
         ];
+
+        function saveTasks() {
+            if (window.eduUserState) {
+                window.eduUserState.tasks = tasks;
+                syncUserState();
+            }
+        }
 
         function renderTasks() {
             taskList.innerHTML = "";
@@ -449,7 +607,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 `;
                 taskList.appendChild(li);
             });
-            localStorage.setItem("eduTasks", JSON.stringify(tasks));
+            saveTasks();
         }
 
         if (addTaskBtn) {
