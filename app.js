@@ -1,3 +1,7 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, updateProfile } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics.js";
+
 document.addEventListener("DOMContentLoaded", () => {
     /* -----------------------------------------------------------
        1. THEME TOGGLE (Dark / Light Mode Support)
@@ -21,6 +25,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const savedTheme = localStorage.getItem("eduTheme") || 
         (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
     setTheme(savedTheme);
+
+    // -----------------------------------------------------------
+    // Firebase client initialization (replace with your config)
+    // -----------------------------------------------------------
+    const firebaseConfig = {
+        apiKey: "AIzaSyCdoCYIGKXLcJxW6hp6qz9_2tBcMk3NVIE",
+        authDomain: "app-cloud-11d89.firebaseapp.com",
+        projectId: "app-cloud-11d89",
+        storageBucket: "app-cloud-11d89.firebasestorage.app",
+        messagingSenderId: "815663475397",
+        appId: "1:815663475397:web:87452f7b31d237d38a9eac",
+        measurementId: "G-V91QWH3XPS"
+    };
+
+    const firebaseApp = initializeApp(firebaseConfig);
+    try { getAnalytics(firebaseApp); } catch (e) { /* analytics may fail in non-browser env */ }
+    const auth = getAuth(firebaseApp);
 
     themeToggles.forEach(btn => {
         btn.addEventListener("click", () => {
@@ -48,12 +69,58 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         authForms.forEach(form => {
-            form.addEventListener("submit", (e) => {
+            form.addEventListener("submit", async (e) => {
                 e.preventDefault();
-                // Redirect straight to dashboard page upon form submission
-                window.location.href = "/dashboard";
+                const id = form.id;
+                const email = form.querySelector('input[type="email"]')?.value?.trim();
+                const pass = form.querySelector('input[type="password"]')?.value || '';
+
+                if (!email || !pass) return alert('Provide email and password.');
+
+                if (id === 'form-login') {
+                    // Sign in (modular API)
+                    try {
+                        const userCred = await signInWithEmailAndPassword(auth, email, pass);
+                        const token = await userCred.user.getIdToken();
+                        localStorage.setItem('eduIdToken', token);
+                        window.location.href = '/dashboard';
+                    } catch (err) {
+                        alert('Sign-in failed: ' + (err.message || err));
+                        console.error(err);
+                    }
+                } else if (id === 'form-register') {
+                    // Register (modular API)
+                    try {
+                        const displayName = form.querySelector('#reg-name')?.value || '';
+                        const userCred = await createUserWithEmailAndPassword(auth, email, pass);
+                        if (displayName) await updateProfile(userCred.user, { displayName });
+                        const token = await userCred.user.getIdToken();
+                        localStorage.setItem('eduIdToken', token);
+                        window.location.href = '/dashboard';
+                    } catch (err) {
+                        alert('Registration failed: ' + (err.message || err));
+                        console.error(err);
+                    }
+                }
             });
         });
+
+        // Google sign-in button
+        const googleBtn = document.getElementById('google-signin');
+        if (googleBtn) {
+            googleBtn.addEventListener('click', async () => {
+                const provider = new GoogleAuthProvider();
+                try {
+                    const result = await signInWithPopup(auth, provider);
+                    const token = await result.user.getIdToken();
+                    localStorage.setItem('eduIdToken', token);
+                    window.location.href = '/dashboard';
+                } catch (err) {
+                    alert('Google sign-in failed: ' + (err.message || err));
+                    console.error(err);
+                }
+            });
+        }
     }
 
     /* -----------------------------------------------------------

@@ -2,17 +2,41 @@ import random
 import re
 from fractions import Fraction
 from typing import Union, List, Dict, Any
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 import uvicorn
+import os
+import logging
+
+try:
+    import firebase_admin
+    from firebase_admin import credentials, auth as firebase_auth
+except Exception:
+    firebase_admin = None
+    firebase_auth = None
 
 app = FastAPI(title="EduPulse API")
 
 # Setup Jinja2 templates pointing to the root directory
 templates = Jinja2Templates(directory=".")
+
+# Initialize Firebase Admin if service account key is available
+if firebase_admin is not None:
+    try:
+        sa_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or "firebase-service-account.json"
+        if os.path.exists(sa_path):
+            cred = credentials.Certificate(sa_path)
+            firebase_admin.initialize_app(cred)
+            logging.info("Initialized Firebase Admin SDK using %s", sa_path)
+        else:
+            logging.info("Firebase service account not found at %s; skipping admin init", sa_path)
+    except Exception as e:
+        logging.exception("Failed to initialize Firebase Admin: %s", e)
+else:
+    logging.info("firebase_admin module not available; install firebase-admin for token verification")
 
 
 # ==========================================
@@ -419,6 +443,57 @@ async def import_questions(payload: ImportQuestionsRequest):
             })
 
     return {"status": "success", "questions": parsed[:50]}
+
+
+# Verify Firebase token helper and endpoint
+def verify_firebase_token_from_header(request: Request):
+    """Dependency to verify Firebase ID token from Authorization header.
+
+    Returns decoded token dict on success, raises HTTPException on failure.
+    """
+    if firebase_admin is None or firebase_auth is None:
+        raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Firebase Admin not configured on server")
+
+    auth_header = request.headers.get("Authorization") or ""
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing or invalid Authorization header")
+
+    id_token = auth_header.split(" ", 1)[1].strip()
+    try:
+        decoded = firebase_auth.verify_id_token(id_token)
+        return decoded
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Invalid ID token: {e}")
+
+
+@app.post("/api/verify-token")
+async def api_verify_token(request: Request):
+    """Verify a Firebase ID token provided either in JSON {idToken} or Authorization: Bearer <token> header."""
+    # Try header first
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        if firebase_admin is None or firebase_auth is None:
+            return JSONResponse({"status": "error", "message": "Firebase Admin not available on server"}, status_code=501)
+        id_token = auth_header.split(" ", 1)[1].strip()
+        try:
+            decoded = firebase_auth.verify_id_token(id_token)
+            return {"status": "success", "user": decoded}
+        except Exception as e:
+            return JSONResponse({"status": "error", "message": f"Invalid token: {e}"}, status_code=401)
+
+    body = await request.json()
+    id_token = body.get("idToken")
+    if not id_token:
+        return JSONResponse({"status": "error", "message": "No idToken provided"}, status_code=400)
+
+    if firebase_admin is None or firebase_auth is None:
+        return JSONResponse({"status": "error", "message": "Firebase Admin not available on server"}, status_code=501)
+
+    try:
+        decoded = firebase_auth.verify_id_token(id_token)
+        return {"status": "success", "user": decoded}
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": f"Invalid token: {e}"}, status_code=401)
 
 
 # ==========================================
