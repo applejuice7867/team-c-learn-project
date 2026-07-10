@@ -1,0 +1,12 @@
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+.venv/
+.venv-workers/
+env/
+
+# Cloudflare local state
+.wrangler/
