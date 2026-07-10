@@ -34,7 +34,11 @@ class ImportQuestionsRequest(BaseModel):
 # Only requests to /api/... reach this Python Worker!
 
 @app.post("/api/generate-math")
-async def generate_math(payload: MathGenRequest):
+async def generate_math(payload: MathGenRequest = None):
+    # If the frontend sends nothing, use the default values
+    if payload is None:
+        payload = MathGenRequest()
+        
     grade = payload.grade
     count = min(max(int(payload.count), 1), 200)
     topic = payload.topic
@@ -370,7 +374,11 @@ async def generate_math(payload: MathGenRequest):
 
 
 @app.post("/api/import-questions")
-async def import_questions(payload: ImportQuestionsRequest):
+async def import_questions(payload: ImportQuestionsRequest = None):
+    # If the frontend sends nothing, use a blank string
+    if payload is None:
+        payload = ImportQuestionsRequest()
+        
     raw_text = payload.text
     lines = [line.strip() for line in raw_text.split("\n") if line.strip()]
     parsed = []
@@ -390,15 +398,8 @@ async def import_questions(payload: ImportQuestionsRequest):
 
 # =========================================================
 # CLOUDFLARE WORKER ENTRYPOINT WRAPPER
-# This connects the Pyodide JS runtime to your FastAPI app
 # =========================================================
-
-# ... all your existing FastAPI imports, models, and /api/... routes ...
-
-# Put this at the very bottom of app.py:
-from workers import WorkerEntrypoint
 import asgi
 
-class Default(WorkerEntrypoint):
-    async def fetch(self, request):
-        return await asgi.fetch(app, request.js_object, self.env)
+def fetch(request, env):
+    return asgi.fetch(app, request, env)
