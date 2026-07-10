@@ -19,7 +19,7 @@ variant = random.choice(config["variants"].get(selected_topic, ["default"]))
 @app.post("/api/generate-math")
 async def generate_math(payload: dict = None):
     # Logic remains thin; no massive hardcoded dictionaries
-    topics_map = get_topics()
+    config = get_config()
     # ... your compact generation logic here ...
     return {"status": "success", "questions": []}
 
