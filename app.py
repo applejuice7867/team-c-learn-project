@@ -399,7 +399,10 @@ async def import_questions(payload: ImportQuestionsRequest = None):
 # =========================================================
 # CLOUDFLARE WORKER ENTRYPOINT WRAPPER
 # =========================================================
+from workers import WorkerEntrypoint
 import asgi
 
-def fetch(request, env):
-    return asgi.fetch(app, request, env)
+class Default(WorkerEntrypoint):
+    async def fetch(self, request):
+        # We use await here to properly process the incoming JS request
+        return await asgi.fetch(app, request.js_object, self.env)

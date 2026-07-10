@@ -488,7 +488,7 @@ saveButton.addEventListener("click", async () => {
             await syncUserState();
                         });
 
-                        checkButton.addEventListener("click", () => {
+                        checkButton.addEventListener("click", async () => {
                             let userAnswer = "";
 
                             if (q.type === "multiple-choice" || q.type === "true-false") {
