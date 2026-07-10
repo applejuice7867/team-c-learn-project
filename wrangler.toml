@@ -1,0 +1,8 @@
+name = "juicelearn"
+main = "app.py"             # <-- Changed from "src/entry.py" to "app.py"
+compatibility_date = "2026-07-08"
+compatibility_flags = ["python_workers"]
+
+[assets]
+directory = "./public"
+binding = "ASSETS"

@@ -2,41 +2,14 @@ import random
 import re
 from fractions import Fraction
 from typing import Union, List, Dict, Any
-from fastapi import FastAPI, Request, Depends, HTTPException, status
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+
+from fastapi import FastAPI, Request
 from pydantic import BaseModel, Field
-import uvicorn
-import os
-import logging
+from workers import WorkerEntrypoint
+import asgi
 
-try:
-    import firebase_admin
-    from firebase_admin import credentials, auth as firebase_auth
-except Exception:
-    firebase_admin = None
-    firebase_auth = None
-
+# Initialize FastAPI App
 app = FastAPI(title="EduPulse API")
-
-# Setup Jinja2 templates pointing to the root directory
-templates = Jinja2Templates(directory=".")
-
-# Initialize Firebase Admin if service account key is available
-if firebase_admin is not None:
-    try:
-        sa_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or "firebase-service-account.json"
-        if os.path.exists(sa_path):
-            cred = credentials.Certificate(sa_path)
-            firebase_admin.initialize_app(cred)
-            logging.info("Initialized Firebase Admin SDK using %s", sa_path)
-        else:
-            logging.info("Firebase service account not found at %s; skipping admin init", sa_path)
-    except Exception as e:
-        logging.exception("Failed to initialize Firebase Admin: %s", e)
-else:
-    logging.info("firebase_admin module not available; install firebase-admin for token verification")
 
 
 # ==========================================
@@ -55,43 +28,13 @@ class ImportQuestionsRequest(BaseModel):
 
 
 # ==========================================
-# HTML TEMPLATE ROUTES
-# ==========================================
-
-
-@app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
-    return templates.TemplateResponse(request=request, name="index.html")
-
-
-@app.get("/login", response_class=HTMLResponse)
-async def login(request: Request):
-    return templates.TemplateResponse(request=request, name="login.html")
-
-
-@app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard(request: Request):
-    return templates.TemplateResponse(request=request, name="dashboard.html")
-
-
-@app.get("/math-generator", response_class=HTMLResponse)
-async def math_generator(request: Request):
-    return templates.TemplateResponse(
-        request=request, name="math-generator.html"
-    )
-
-
-@app.get("/question-importer", response_class=HTMLResponse)
-async def question_importer(request: Request):
-    return templates.TemplateResponse(
-        request=request, name="question-importer.html"
-    )
-# ==========================================
 # API ENDPOINTS
 # ==========================================
+# Note: Static files (HTML, CSS, JS) are served automatically by Cloudflare Edge Assets.
+# Only requests to /api/... reach this Python Worker!
 
 @app.post("/api/generate-math")
-async def generate_math(payload: MathGenRequest, token=Depends(verify_firebase_token_from_header)):
+async def generate_math(payload: MathGenRequest):
     grade = payload.grade
     count = min(max(int(payload.count), 1), 200)
     topic = payload.topic
@@ -427,7 +370,7 @@ async def generate_math(payload: MathGenRequest, token=Depends(verify_firebase_t
 
 
 @app.post("/api/import-questions")
-async def import_questions(payload: ImportQuestionsRequest, token=Depends(verify_firebase_token_from_header)):
+async def import_questions(payload: ImportQuestionsRequest):
     raw_text = payload.text
     lines = [line.strip() for line in raw_text.split("\n") if line.strip()]
     parsed = []
@@ -445,63 +388,17 @@ async def import_questions(payload: ImportQuestionsRequest, token=Depends(verify
     return {"status": "success", "questions": parsed[:50]}
 
 
-# Verify Firebase token helper and endpoint
-def verify_firebase_token_from_header(request: Request):
-    """Dependency to verify Firebase ID token from Authorization header.
+# =========================================================
+# CLOUDFLARE WORKER ENTRYPOINT WRAPPER
+# This connects the Pyodide JS runtime to your FastAPI app
+# =========================================================
 
-    Returns decoded token dict on success, raises HTTPException on failure.
-    """
-    if firebase_admin is None or firebase_auth is None:
-        raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Firebase Admin not configured on server")
+# ... all your existing FastAPI imports, models, and /api/... routes ...
 
-    auth_header = request.headers.get("Authorization") or ""
-    if not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing or invalid Authorization header")
+# Put this at the very bottom of app.py:
+from workers import WorkerEntrypoint
+import asgi
 
-    id_token = auth_header.split(" ", 1)[1].strip()
-    try:
-        decoded = firebase_auth.verify_id_token(id_token)
-        return decoded
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Invalid ID token: {e}")
-
-
-@app.post("/api/verify-token")
-async def api_verify_token(request: Request):
-    """Verify a Firebase ID token provided either in JSON {idToken} or Authorization: Bearer <token> header."""
-    # Try header first
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        if firebase_admin is None or firebase_auth is None:
-            return JSONResponse({"status": "error", "message": "Firebase Admin not available on server"}, status_code=501)
-        id_token = auth_header.split(" ", 1)[1].strip()
-        try:
-            decoded = firebase_auth.verify_id_token(id_token)
-            return {"status": "success", "user": decoded}
-        except Exception as e:
-            return JSONResponse({"status": "error", "message": f"Invalid token: {e}"}, status_code=401)
-
-    body = await request.json()
-    id_token = body.get("idToken")
-    if not id_token:
-        return JSONResponse({"status": "error", "message": "No idToken provided"}, status_code=400)
-
-    if firebase_admin is None or firebase_auth is None:
-        return JSONResponse({"status": "error", "message": "Firebase Admin not available on server"}, status_code=501)
-
-    try:
-        decoded = firebase_auth.verify_id_token(id_token)
-        return {"status": "success", "user": decoded}
-    except Exception as e:
-        return JSONResponse({"status": "error", "message": f"Invalid token: {e}"}, status_code=401)
-
-
-# ==========================================
-# STATIC FILE SERVING (MOUNT LAST)
-# ==========================================
-# Mount the root folder to serve app.js, styles.css, etc.
-app.mount("/", StaticFiles(directory=".", html=False), name="static")
-
-
-if __name__ == "__main__":
-    uvicorn.run("app:app", host="127.0.0.1", port=5000, reload=True)
+class Default(WorkerEntrypoint):
+    async def fetch(self, request):
+        return await asgi.fetch(app, request.js_object, self.env)
