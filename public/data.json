@@ -1,0 +1,107 @@
+{
+    "grade_bands": {
+        "k-2": [
+            "arithmetic",
+            "counting",
+            "shapes"
+        ],
+        "3-5": [
+            "arithmetic",
+            "fractions",
+            "percentages",
+            "word-problems",
+            "geometry"
+        ],
+        "6-8": [
+            "arithmetic",
+            "fractions",
+            "percentages",
+            "algebra",
+            "geometry",
+            "probability",
+            "statistics",
+            "exponents",
+            "ratios"
+        ],
+        "9-12": [
+            "algebra",
+            "geometry",
+            "probability",
+            "statistics",
+            "functions",
+            "sequences",
+            "inequalities",
+            "trigonometry",
+            "calculus",
+            "exponents"
+        ]
+    },
+    "variants": {
+        "arithmetic": [
+            "add",
+            "subtract",
+            "compare",
+            "missing",
+            "pattern",
+            "before_after",
+            "count_objects",
+            "number_sentence",
+            "multiply",
+            "divide",
+            "mixed",
+            "estimate",
+            "fact_family",
+            "number_line",
+            "missing_addend",
+            "comparison"
+        ],
+        "fractions": [
+            "add",
+            "subtract",
+            "compare",
+            "multiply",
+            "convert",
+            "share"
+        ],
+        "algebra": [
+            "linear",
+            "two_step",
+            "combine",
+            "evaluate",
+            "distribute",
+            "factor"
+        ],
+        "geometry": [
+            "rectangle_area",
+            "triangle_area",
+            "perimeter",
+            "circle_circumference",
+            "missing_angle",
+            "volume"
+        ],
+        "word-problems": [
+            "shopping",
+            "distance",
+            "reading",
+            "sharing"
+        ],
+        "probability": [
+            "dice",
+            "coins",
+            "marbles",
+            "spinners"
+        ],
+        "statistics": [
+            "mean",
+            "median",
+            "range",
+            "mode"
+        ],
+        "exponents": [
+            "power",
+            "product_rule",
+            "zero_exponent",
+            "expanded"
+        ]
+    }
+}
